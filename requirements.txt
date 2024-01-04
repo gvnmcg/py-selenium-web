@@ -1,0 +1,6 @@
+selenium==4.16.0
+# pytest
+# trio
+# pytest-trio
+# flake8
+dotenv
