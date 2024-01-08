@@ -1,3 +1,5 @@
 login.py
 .env
 secret_notes.md
+
+*.ps1
