@@ -52,7 +52,7 @@ def click_view_all_onload(elem_id):
         if element : element.click()
     except: 
         # element = driver.find_element(By.ID, elem_id)
-        print("only one")
+        print("no view all")
     
 
 
