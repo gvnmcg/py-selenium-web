@@ -14,21 +14,17 @@ import pandas as pd
 import time
 import sys
 
-# load credentials from .env config
+"""Load Credentials""" 
+# .env config
 load_dotenv("C:\Program Files\Google\Chrome\.env")
 env_config = dotenv_values("C:\Program Files\Google\Chrome\.env")
 # load_dotenv("test-data\.env")
 test_config = dotenv_values("test-data\.env")
 
-input_file_path = ""
-output_file_path = ""
-file_path = "executables/term-check/BCBSAcct.xlsx"
+input_file_path = sys.argv[1]
+output_file_path = sys.argv[2]
 
-# browser options
-use_options = True
-stagger = True
-debug = True
-
+"""Constants"""
 SHARE_LOGIN_PAGE_URL = "https://hcm.share.state.nm.us/psp/hprd/?cmd=login&languageCd=ENG"
 SHARE_PERSONAL_INFO_URL = "https://hcm.share.state.nm.us/psc/hprd/EMPLOYEE/HRMS/c/ADMINISTER_WORKFORCE_(GBL).PERSONAL_DATA.GBL"
 SHARE_JOBDATA_URL = "https://hcm.share.state.nm.us/psc/hprd/EMPLOYEE/HRMS/c/ADMINISTER_WORKFORCE_(GBL).JOB_DATA.GBL"
@@ -38,7 +34,7 @@ SHARE_SSN_URL = "https://hcm.share.state.nm.us/psc/hprd/EMPLOYEE/HRMS/c/ADMINIST
 NATIONAL_ID_FIELD_HTML_ID = "DERIVED_HR_NATIONAL_ID"
 COV_CHNG_DATE_HTML_ID = "HEALTH_BENEFIT_COVERAGE_BEGIN_DT$0"
 BEN_PLAN_HTML_ID = "HEALTH_BENEFIT_BENEFIT_PLAN$0"
-EMP_SEARCH_HTML_ID = "EMPL_BEN_SRCH_EMPLID"
+EMP_SEARCH_HTML_NAME = "EMPL_BEN_SRCH_EMPLID"
 ACTIVE_STATUS_HTML_ID = "JOB_HR_STATUS$0"
 SEARCH_FIELD_HTML_ID = 'EMPLMT_SRCH_COR_EMPLID'
 
@@ -48,9 +44,12 @@ IBAC_STATE_INQUIRY_URL = "http://ibacweb/RMD2015/Inquiry/Inquiry/SearchPage"
 SEARCHBAR_HTML_ID = "txtSearch"
 ENRL_TABLE_HTML_ID = "enrmBody"
 
+"""Browser Config"""
+use_options = True
+stagger = True
+debug = True
 global driver
 if use_options:
-  
     # Configure Driver
     if debug : print("Configure Driver")
     chrome_options = Options()
@@ -65,17 +64,30 @@ else :
 
 
 """UTILITY"""
-def enterFieldData(field_name, input_text):
+def enterFieldDataByID(field_name, input_text):
     global element
     # global emp_data
-    element = WebDriverWait(driver, 2).until(
+    if stagger: time.sleep(1)
+    element = WebDriverWait(driver, 4).until(
         EC.element_to_be_clickable((By.ID, field_name))
     )
+    element.clear()
     element.send_keys(input_text)
 
-def copyDataByID(field_id_name):
+def enterFieldDataByName(field_name, input_text):
+    global element
+    # global emp_data
+    if stagger: time.sleep(1)
+    element = WebDriverWait(driver, 2).until(
+        EC.element_to_be_clickable((By.NAME, field_name))
+    )
+    element.clear()
+    element.send_keys(input_text)
+
+def getDataByID(field_id_name):
     global driver
     # global emp_data
+    if stagger: time.sleep(1)
     return WebDriverWait(driver, 2).until(
         EC.element_to_be_clickable((By.ID, field_id_name))
     ).get_attribute('innerHTML')
@@ -85,104 +97,125 @@ def copyDataByID(field_id_name):
 """MAIN"""
 def login_to_share():
     if debug : print("login to SHARE")
-    driver.get(SHARE_LOGIN_PAGE_URL)
-    enterFieldData('userid', env_config['SHARE_LOGIN'])
-    enterFieldData('pwd', env_config['SHARE_PWD'])
+
+    if driver.current_url != SHARE_LOGIN_PAGE_URL:
+        driver.get(SHARE_LOGIN_PAGE_URL)
+
+    enterFieldDataByID('userid', env_config['SHARE_LOGIN'])
+    enterFieldDataByID('pwd', env_config['SHARE_PWD'])
     element.send_keys("\n")
 
+    if debug : print("logged in to SHARE")
+    return
+
 def find_ID_via_SSN(emp_ssn):
-    if debug : print("find_ID_via_SSN: ", emp_ssn)
-    driver.get(SHARE_SSN_URL)
-    if stagger: time.sleep(1)
-    # if driver.find_element(By.ID, NATIONAL_ID_FIELD_HTML_ID).is_displayed():
-    driver.find_element(By.ID, NATIONAL_ID_FIELD_HTML_ID).clear()
-    enterFieldData(NATIONAL_ID_FIELD_HTML_ID,  emp_ssn)
+    if debug : print("Get ID")
+    if debug : print("SSN: ", emp_ssn)
+
+    if driver.current_url != SHARE_SSN_URL:
+        driver.get(SHARE_SSN_URL)
+
+    enterFieldDataByID(NATIONAL_ID_FIELD_HTML_ID,  emp_ssn)
     driver.find_element(By.ID, "DERIVED_HR_LOOKUP_NID_BTN").click()
-    if stagger: time.sleep(1)
-    emp_ID = copyDataByID("NID_SRCH_VW_EMPLID$0")
+
+    emp_ID = getDataByID("NID_SRCH_VW_EMPLID$0")
+
     if debug: print("Employee ID: ", emp_ID)
     return emp_ID
 
+"""
 def find_ID_via_SSN_func(emp_ssn):
     if debug : print("find_ID_via_SSN: ", emp_ssn)
     is_list = []
-    if stagger: time.sleep(1)
-    # if driver.find_element(By.ID, NATIONAL_ID_FIELD_HTML_ID).is_displayed():
-    driver.find_element(By.ID, NATIONAL_ID_FIELD_HTML_ID).clear()
-    enterFieldData(NATIONAL_ID_FIELD_HTML_ID,  emp_ssn)
+    enterFieldDataByID(NATIONAL_ID_FIELD_HTML_ID,  emp_ssn)
     driver.find_element(By.ID, "DERIVED_HR_LOOKUP_NID_BTN").click()
-    if stagger: time.sleep(1)
-    emp_ID = copyDataByID("NID_SRCH_VW_EMPLID$0")
+    emp_ID = getDataByID("NID_SRCH_VW_EMPLID$0")
     if stagger: time.sleep(1)
     if debug: print("Employee ID: ", emp_ID)
     return emp_ID
-
+"""
 
 def check_job_status(emp_ID): 
     if debug : print("check_job_status: ", emp_ID)
-    driver.get(SHARE_JOBDATA_URL)
+    
+    if driver.current_url != SHARE_JOBDATA_URL:
+        driver.get(SHARE_JOBDATA_URL)
+
     if stagger: time.sleep(1)
     if driver.find_element(By.ID, SEARCH_FIELD_HTML_ID).is_displayed():
-        driver.find_element(By.ID, SEARCH_FIELD_HTML_ID).clear()
-        enterFieldData(SEARCH_FIELD_HTML_ID, emp_ID)
+        enterFieldDataByID(SEARCH_FIELD_HTML_ID, emp_ID)
         element.send_keys("\n")
     else:
         driver.find_element(By.ID, "#ICList").click()
-        driver.find_element(By.ID, SEARCH_FIELD_HTML_ID).clear()
-        enterFieldData(SEARCH_FIELD_HTML_ID, emp_ID)
+        enterFieldDataByID(SEARCH_FIELD_HTML_ID, emp_ID)
         element.send_keys("\n")
-    if stagger: time.sleep(1)
-    job_status = copyDataByID(ACTIVE_STATUS_HTML_ID)
+    job_status = getDataByID(ACTIVE_STATUS_HTML_ID)
+
     if debug: print("Employee Status: ", job_status)
     return job_status
 
 def active_medical_check(emp_ID):
     if debug : print("active_medical_check")
+
+    if driver.current_url != SHARE_HEALTH_URL:
+        driver.get(SHARE_HEALTH_URL)
+
+    # Search for Employee and 
+    # element = driver.find_element(By.NAME, EMP_SEARCH_HTML_NAME)
+    # if element.is_displayed():
+    #     element.clear()
+    #     element.send_keys(emp_ID)
+    #     element.send_keys("\n")
+    enterFieldDataByName(EMP_SEARCH_HTML_NAME, emp_ID)
+    element.send_keys("\n")
+
+    # get Benefits Carrier
+    if stagger: time.sleep(1)
+    ben_carrier = getDataByID(BEN_PLAN_HTML_ID)
+    print("ben_carrier: ", ben_carrier)
+
     # active -> check health -> check Carrier & term date
-    if stagger: time.sleep(1)
-    driver.get(SHARE_HEALTH_URL)
-    element = driver.find_element(By.NAME, EMP_SEARCH_HTML_ID)
-    if element.is_displayed():
-        element.clear()
-        element.send_keys(emp_ID)
-        element.send_keys("\n")
-    if stagger: time.sleep(1)
-    ben_plan = copyDataByID(BEN_PLAN_HTML_ID)
-    print("ben_plan: ", ben_plan)
-    if ben_plan.__contains__("BCBS"):
+    # if ben_carrier.__contains__("BCBS"):
+    if "BCBS" in ben_carrier:
         emp_status = "Active"
     else:
-        cov_change_date = copyDataByID(COV_CHNG_DATE_HTML_ID)
+        cov_change_date = getDataByID(COV_CHNG_DATE_HTML_ID)
         emp_status = "Termed " + cov_change_date
-    if stagger: time.sleep(2)
+
     print("Employee Status: ", emp_status)
     return emp_status
 
 def login_IBAC():
-    driver.get(IBAC_LOGIN_PAGE_URL)
-    enterFieldData('partialLogin_userName', env_config["IBAC_LOGIN"])
-    enterFieldData('partialLogin_password', env_config["IBAC_PASS"])
-    element.submit()
+    if driver.current_url != IBAC_LOGIN_PAGE_URL:
+        driver.get(IBAC_LOGIN_PAGE_URL)
+    enterFieldDataByID('partialLogin_userName', env_config["IBAC_LOGIN"])
+    enterFieldDataByID('partialLogin_password', env_config["IBAC_PASS"])
+    # element.submit()
+    element.send_keys("\n")
 
 def inactive_medical_check(ssn):
     if debug : print("inactive_medical_check")
+
+    if driver.current_url != IBAC_STATE_INQUIRY_URL:
+        driver.get(IBAC_STATE_INQUIRY_URL)
+    
     # incative -> check ibac inquiry -> check cobra -> check expire date
-    login_IBAC()
-    driver.get(IBAC_STATE_INQUIRY_URL)
     if stagger: time.sleep(1)
-    enterFieldData(SEARCHBAR_HTML_ID, ssn)
+    enterFieldDataByID(SEARCHBAR_HTML_ID, ssn)
     driver.find_element(By.ID, "Button1").click()
     # element.send_keys("\n")
+    # load page
     if stagger: time.sleep(5)
     try:
         element = driver.find_element(By.ID, "enrmBody")
-        print( element)
-        # print(element.find_elements(By.TAG_NAME, "td"))
         elem_enrl_list = element.find_elements(By.TAG_NAME, "td")
+
         enrl_type = elem_enrl_list[4].get_attribute("innerHTML")
+        eff_date = elem_enrl_list[0].get_attribute("innerHTML")
+
         print("enrl type:  ", enrl_type)
         if enrl_type  == "Cobra":
-            return "Cobra " + elem_enrl_list[0].get_attribute("innerHTML")
+            return "Cobra " + eff_date
         else:
             return elem_enrl_list.__str__()
     except:
@@ -200,44 +233,128 @@ def single_term_check(ssn):
             out_status = active_medical_check(emp_ID)
         else:
             # raise Exception('go to IBAC')
+            # incative -> check ibac
+            login_IBAC()
             out_status = inactive_medical_check(ssn)
         return out_status
     except:
         return "failed"
 
-def single_file_term_check_file():
-   
-    # with open(input_file_path, 'r', encoding='utf-8') as input_file, 
-    #         open(output_file_path, 'w', encoding='utf-8') as output_file:
-    input_file = open(input_file_path, 'r', encoding='utf-8')
-    output_file = open(output_file_path, 'w', encoding='utf-8')
-    for line_ssn in input_file:
-        print(line_ssn)
-        out_line = single_term_check(line_ssn)
-        output_file.write(line_ssn.strip() + ": " + out_line + "\n")
-
-    input_file.close()
-    output_file.close()
 emp_map = {}
 
-def single_file_term_check_XLSX():
-    file_path = ""
+def term_check_all_func():
 
-    df = pd.read_excel(file_path, sheet_name="CancelNoMatch", header=3)
-    in_col = "SubSocSec"
-    term_col = "Unnamed: 13"
-    id_col = "Unnamed: 15"
-    print(df[in_col])
-    # ssn_list = df["Unnamed: 3"].tolist()
-    # for ix in range(3, len(ssn_list)+3):
-    #     # if line_ssn.is_digit() and len(line_ssn) == 9:
-    #     print(ssn_list[ix])
-    #     out_line = single_term_check(ssn_list[ix])
-    #     df.at[ix, 'Unnamed: 15'] = out_line
-    #     df.at[ix, 'Unnamed: 16'] = ssn_list[ix]
-    #     df.to_excel(out_file_path, index=False)
+    id_set = {}
+    df = pd.read_excel(input_file_path, sheet_name="CancelNoMatch", header=3)
+    # rows = df.iloc[50:].iterrows()
+    rows = df.iterrows()
 
-emp_map = {}
+    ssn_col = "SubSocSec"
+    out_term_col = "Term Status"
+    out_id_col = "State IDs"
+    
+    # get IDs from SSN
+    for ix, row in rows:
+        print("#: ", ix)
+        df.at[ix, out_id_col] = find_ID_via_SSN(row[ssn_col])  # Write to the second column
+        df.to_excel(output_file_path, index=False)
+
+    # get term status from IDs
+    for ix, row in rows:
+        print("#: ", ix)
+        emp_ID = row[out_id_col]
+        emp_ssn = row[ssn_col]  
+        if debug : print("emp_ID: ", emp_ID, ", emp_ssn: ", emp_ssn)
+        # if debug : print("rows: ", row)
+
+        # if emp_ID == "nan":
+        #     emp_ID  = find_ID_via_SSN(row[ssn_col])
+        # elif "&nbsp" in emp_ID: 
+        #     out_status = inactive_medical_check(emp_ssn)
+        
+        try:
+            emp_status = check_job_status(emp_ID)
+            if debug : print("emp_status: ", emp_status)
+
+            if emp_status == "Active":
+                out_status = active_medical_check(emp_ID)
+            else:
+                login_IBAC()
+                out_status = inactive_medical_check(emp_ssn)
+        except:
+            # return out_status
+            out_status = "&NBSP error"
+
+        id_set[emp_ID] = out_status
+
+        df.at[ix, out_term_col] = out_status  # Write to the second column
+        df.to_excel(output_file_path, index=False)
+
+def test_XLSX():
+
+    df = pd.read_excel(input_file_path, sheet_name="CancelNoMatch", header=3)
+    ssn_col = "SubSocSec"
+
+    term_col = "Unnamed: 17"
+    id_col   = "Unnamed: 15"
+
+    print("df.head(", df.head())
+    print("df.columns)", df.columns)
+    print("df[ssn_col]", df[ssn_col])
+    # print("df[id_col]", df[id_col])
+    # print("df[term_col]", df[term_col])
+    print("df", df)
+
+def check_Ibac():
+    login_IBAC()
+    df = pd.read_excel(input_file_path, sheet_name="CancelNoMatch", header=3)
+    # rows = df.iloc[50:].iterrows()
+    rows = df.iterrows()
+
+    ssn_col = "SubSocSec"
+    in_term_col = "Term Status"
+    in_id_col = "State IDs"
+
+    for ix, row in rows:
+        emp_term = row[in_term_col]  
+        emp_ID = row[in_id_col]
+        emp_ssn = row[ssn_col]  
+
+        if "&NBSP" in emp_term:
+            print("#: ", ix)
+            if debug : print("emp_ID: ", emp_ID, ", emp_ssn: ", emp_ssn)
+            out_status = inactive_medical_check(row[ssn_col])
+
+        # try:
+        #     out_status = inactive_medical_check(emp_ssn)
+        # except:
+        #     # return out_status
+        #     out_status = "&NBSP error"
+            df.at[ix, "term"] = out_status
+            df.to_excel(output_file_path, index=False)
+    df.close()
+
+def main():
+    try:
+        login_to_share()
+        # test_XLSX()
+        # check_Ibac()
+        term_check_all_func()
+        return
+    except Exception as e:
+        # By this way we can know about the type of error occurring
+            print("The error is: ", e)
+            # print(driver.page_source)
+            # print(driver.print_page)
+
+    finally : 
+        time.sleep(1000)
+        driver.quit()
+
+main()
+
+
+
 """
 class Emp():
     def __init__(self, ssn) -> None:
@@ -275,62 +392,3 @@ def page_wise_term_check_file():
         for line_ssn in emp_map.keys():
             output_file.write(emp_map[line_ssn] + "\n")
 """
-
-def term_check_all_func():
-    df = pd.read_excel(file_path, sheet_name="CancelNoMatch", header=3)
-    ssn_col = "SubSocSec"
-    term_col = "Unnamed: 17"
-    id_col = "Unnamed: 15"
-    # driver.get(SHARE_SSN_URL)
-    driver.get(SHARE_JOBDATA_URL)
-
-    # df[id_col] = df[in_col].apply(find_ID_via_SSN_func)
-    # for emp_ssn in df[in_col]:
-    for ix, row in df.iloc[70:].iterrows():
-        emp_ID = row[id_col]  # Process data from the first column
-        emp_ssn = row[ssn_col]  # Process data from the first column
-        try:
-            emp_status = check_job_status(emp_ID)
-
-            if debug : print("emp_status: ", emp_status)
-            if debug : print("emp_ID: ", emp_ID)
-            if debug : print("emp_ssn: ", emp_ssn)
-
-            if emp_status == "Active":
-                out_status = active_medical_check(emp_ID)
-            else:
-                # raise Exception('go to IBAC')
-                out_status = inactive_medical_check(emp_ssn)
-        except:
-            # return out_status
-            out_status = "&NBSP error"
-
-        df.at[ix, term_col] = out_status  # Write to the second column
-        df.to_excel(out_file_path, index=False)
-
-def main():
-    try:
-        login_to_share()
-        # single_file_term_check_XLSX()
-        term_check_all_func()
-        return
-        # single_file_term_check_file()
-        # return 
-        print(sys.argv)
-        if len(sys.argv) == 2:
-            print(single_term_check(sys.argv[1]))
-        # if len(sys.argv) == 3:
-        #     print(single_term_check(sys.argv[1]))
-        else:
-            page_wise_term_check_file()
-    except Exception as e:
-        # By this way we can know about the type of error occurring
-            print("The error is: ", e)
-            # print(driver.page_source)
-            # print(driver.print_page)
-
-    finally : 
-        time.sleep(1000)
-        driver.quit()
-
-main()
